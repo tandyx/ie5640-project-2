@@ -1,0 +1,8 @@
+ultralytics
+numpy
+pandas
+scikit-learn
+tensorflow
+keras
+matplotlib
+keras_preprocessing

@@ -1,0 +1,6 @@
+train: "./train"
+val: "./val"
+
+# Classes
+names:
+  0: part

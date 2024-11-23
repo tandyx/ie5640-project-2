@@ -1,0 +1,77 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# C extensions
+*.so
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# Rope
+.ropeproject
+
+# Django stuff:
+*.log
+*.pot
+
+# Sphinx documentation
+docs/_build/
+
+#other
+.env
+*.pyc
+*.pyo
+
+*.csv
+*.db
+*.db-journal
+*.venv
+st_testing.py
+static/leaflet-rotatedmarker/
+static/leaflet.markercluster-1.4.1/
+*.flaskenv
+geojsons/
+static/secrets.json
+static/secrets.html
+venv/
+/static/node_modules
+
+/static/.eslintrc.yml
+/static/.eslintrc.json
+.directory
+*/*/package-lock.json
+/runs
+*/*.zip
+*.zip
