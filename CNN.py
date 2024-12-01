@@ -24,7 +24,7 @@ IMG_SIZE = (640, 480)  # width by height
 def load_images(
     basepath: os.PathLike,
     ispart: bool,
-    size: tuple[int, int] = IMG_SIZE,
+    img_size: tuple[int, int] = IMG_SIZE,
     zippath: os.PathLike = None,
 ) -> list[np.ndarray]:
     """manipulates images and grayscales them or something like that
@@ -32,11 +32,11 @@ def load_images(
     args:
         - basepath: the basepath of images
         - ispart: is this a part?
-        - size: (width, height)
-        - zippath: path to zip containing images
+        - img_size: (width, height) of the image
+        - zippath: path to zip containing images \n
     returns:
         - list[np.NDArry]: list of image arrays
-    \n"""
+    """
     label = int(ispart)
     if not os.path.exists(
         image_dir := os.path.join(basepath, "PATH_TO_IMAGES", f"{label}")
@@ -59,13 +59,13 @@ def load_images(
             os.path.join(output_path, f"image_{idx}.jpg")
         )
     return [
-        np.array(Image.open(os.path.join(output_path, fname)).resize(size))
+        np.array(Image.open(os.path.join(output_path, fname)).resize(img_size))
         for fname in os.listdir(output_path)
     ]
 
 
 def save_images_from_array(
-    images_array: list[np.ndarray], labels: list[int], output_folder: str
+    images_array: list[np.ndarray], labels: list[int], output_folder: os.PathLike
 ) -> None:
     """
     Extra work to reconstruct images if needed.
@@ -73,18 +73,23 @@ def save_images_from_array(
     saves an image from a list of numpy arrays
 
     args:
-        - images_arrary
-        -
+        - images_arrary (list[np.ndarray])
+        - labels (list[int])
+        - output_folder (os.Pathlike) \n
+    returns:
+        - None
     """
     for idx, img_array in enumerate(images_array):
         # Assuming the image_array contains the pixel values for the image
         # Create PIL image from array
         img = Image.fromarray(img_array.astype("uint8"))
         # img = img.resize((original_width, original_height))
-        label = labels[idx]  # Get label for the image
-        if not os.path.exists(label_folder := os.path.join(output_folder, str(label))):
-            os.makedirs(label_folder)
-        img.save(os.path.join(label_folder, f"image_{idx}.jpg"))  # Save the image
+        # label =   # Get label for the image
+        if not os.path.exists(
+            label_dir := os.path.join(output_folder, str(labels[idx]))
+        ):
+            os.makedirs(label_dir)
+        img.save(os.path.join(label_dir, f"image_{idx}.jpg"))  # Save the image
 
 
 def main():
