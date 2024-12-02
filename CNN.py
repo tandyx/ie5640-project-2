@@ -182,12 +182,17 @@ def main(**kwargs):
 
     val_loss, val_accuracy = model.evaluate(x_valid, y_valid)
     print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
-    
-    target =kwargs["target"] if os.path.isdir(kwargs["target"]) else [kwargs["target"]]
-    for _img_path in os.listdir():        
+
+    for _img_path in os.listdir(
+        kwargs["target"] if os.path.isdir(kwargs["target"]) else [kwargs["target"]]
+    ):
         # Load and preprocess the image
         img = image.load_img(
-            os.path.join(basepath, "grayscale_images_1", "image_0.jpg"),
+            (
+                os.path.join(kwargs["target"], _img_path)
+                if os.path.isdir(kwargs["target"])
+                else kwargs["target"]
+            ),
             color_mode="grayscale",
             target_size=IMG_SIZE[::-1],
         )
@@ -211,16 +216,24 @@ def main(**kwargs):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--no-parts-zip", default="photos_no_part.zip", required=False, help="path to no parts zip file -- zip containing images without any parts"
+        "--no-parts-zip",
+        default="photos_no_part.zip",
+        required=False,
+        help="path to no parts zip file -- zip containing images without any parts",
     )
     parser.add_argument(
-        "--parts-zip", default="photos.zip", required=False, help="path to no images with parts zip"
+        "--parts-zip",
+        default="photos.zip",
+        required=False,
+        help="path to no images with parts zip",
     )
     parser.add_argument(
-        "--threshold", type=float, default=0.5, required=False, help="treshold detection"
+        "--threshold",
+        type=float,
+        default=0.5,
+        required=False,
+        help="treshold detection",
     )
-    parser.add_argument(
-        "--target", "-t", default=None, help="target image(s)"
-    )
-    
+    parser.add_argument("--target", "-t", default=None, help="target image(s)")
+
     main(**parser.parse_args().__dict__)
