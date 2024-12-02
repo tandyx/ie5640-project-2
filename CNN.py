@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+import argparse
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -92,13 +93,13 @@ def save_images_from_array(
         img.save(os.path.join(label_dir, f"image_{idx}.jpg"))  # Save the image
 
 
-def main():
+def main(**kwargs):
 
     if not os.path.exists(basepath := os.path.join(tempfile.gettempdir(), "CNN")):
         os.mkdir(basepath)
     # Load images and labels for each class
-    product_images = load_images(basepath, True, zippath="photos.zip")
-    no_product_images = load_images(basepath, False, zippath="photos_no_part.zip")
+    product_images = load_images(basepath, True, zippath=kwargs["parts_zip"])
+    no_product_images = load_images(basepath, False, zippath=kwargs["no_parts_zip"])
 
     # Combine the two sets of images and labels
     all_images = product_images + no_product_images
@@ -181,29 +182,45 @@ def main():
 
     val_loss, val_accuracy = model.evaluate(x_valid, y_valid)
     print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
+    
+    target =kwargs["target"] if os.path.isdir(kwargs["target"]) else [kwargs["target"]]
+    for _img_path in os.listdir():        
+        # Load and preprocess the image
+        img = image.load_img(
+            os.path.join(basepath, "grayscale_images_1", "image_0.jpg"),
+            color_mode="grayscale",
+            target_size=IMG_SIZE[::-1],
+        )
+        # Replace "1.JPG" with your image of choice
+        # Normalize pixel values
+        img_array = np.expand_dims(image.img_to_array(img), axis=0) / 255.0
+        # Make predictions using the model
+        predictions = model.predict(img_array)
 
-    # Load and preprocess the image
-    img = image.load_img(
-        os.path.join(basepath, "grayscale_images_1", "image_0.jpg"),
-        color_mode="grayscale",
-        target_size=IMG_SIZE[::-1],
-    )
-    # Replace "1.JPG" with your image of choice
-    # Normalize pixel values
-    img_array = np.expand_dims(image.img_to_array(img), axis=0) / 255.0
-    # Make predictions using the model
-    predictions = model.predict(img_array)
-
-    # Assuming predictions are [class_prob]
-    threshold = 0.4  # Adjust this threshold as needed
-    if predictions[0] > threshold:
-        # Visualization with matplotlib assuming predictions are above threshold
-        plt.imshow(img)
-        plt.title("Detected Object")
-        plt.show()
-    else:
-        print("No object detected.")
+        # Assuming predictions are [class_prob]
+        # Adjust this threshold as needed
+        if predictions[0] > kwargs["threshold"]:
+            # Visualization with matplotlib assuming predictions are above threshold
+            plt.imshow(img)
+            plt.title("Detected Object")
+            plt.show()
+        else:
+            print("No object detected.")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--no-parts-zip", default="photos_no_part.zip", required=False, help="path to no parts zip file -- zip containing images without any parts"
+    )
+    parser.add_argument(
+        "--parts-zip", default="photos.zip", required=False, help="path to no images with parts zip"
+    )
+    parser.add_argument(
+        "--threshold", type=float, default=0.5, required=False, help="treshold detection"
+    )
+    parser.add_argument(
+        "--target", "-t", default=None, help="target image(s)"
+    )
+    
+    main(**parser.parse_args().__dict__)
