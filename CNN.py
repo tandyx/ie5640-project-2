@@ -67,7 +67,7 @@ def load_images(
 
 def save_images_from_array(
     images_array: list[np.ndarray], labels: list[int], output_folder: os.PathLike
-) -> None:
+) -> list[str]:
     """
     Extra work to reconstruct images if needed.
 
@@ -78,8 +78,9 @@ def save_images_from_array(
         - labels (list[int])
         - output_folder (os.Pathlike) \n
     returns:
-        - None
+        - list of paths
     """
+    paths: list[str] = []
     for idx, img_array in enumerate(images_array):
         # Assuming the image_array contains the pixel values for the image
         # Create PIL image from array
@@ -90,12 +91,16 @@ def save_images_from_array(
             label_dir := os.path.join(output_folder, str(labels[idx]))
         ):
             os.makedirs(label_dir)
-        img.save(os.path.join(label_dir, f"image_{idx}.jpg"))  # Save the image
+        img.save(_path := os.path.join(label_dir, f"image_{idx}.jpg"))  # Save the image
+        paths.append(_path)
+    return paths
 
 
 def main(**kwargs):
 
-    if not os.path.exists(basepath := os.path.join(tempfile.gettempdir(), "CNN")):
+    if not os.path.exists(
+        basepath := kwargs["basepath"] or os.path.join(tempfile.gettempdir(), "CNN")
+    ):
         os.mkdir(basepath)
     # Load images and labels for each class
     product_images = load_images(basepath, True, zippath=kwargs["parts_zip"])
@@ -117,7 +122,7 @@ def main(**kwargs):
         x_train, y_train, os.path.join(basepath, "train_output_folder")
     )
     # Save validation images
-    save_images_from_array(
+    valid_img_path = save_images_from_array(
         x_valid, y_valid, os.path.join(basepath, "valid_output_folder")
     )
 
@@ -169,7 +174,7 @@ def main(**kwargs):
         y_train,
         epochs=10,
         batch_size=6,
-        validation_data=(x_valid, y_valid),
+        validation_data=(x_valid[:5], y_valid[:5]),
         callbacks=[early_stopping],
     )
     # epochs: Indicates how many times the entire dataset is passed forward and backward through the neural network.
@@ -180,37 +185,53 @@ def main(**kwargs):
     # might converge faster but could lead to noisier gradients, while larger batch sizes might provide a smoother
     # gradient but can be computationally expensive.
 
-    val_loss, val_accuracy = model.evaluate(x_valid, y_valid)
-    print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
+    # val_loss, val_accuracy = model.evaluate(x_valid, y_valid)
 
-    for _img_path in os.listdir(
-        kwargs["target"] if os.path.isdir(kwargs["target"]) else [kwargs["target"]]
-    ):
-        # Load and preprocess the image
-        img = image.load_img(
-            (
-                os.path.join(kwargs["target"], _img_path)
-                if os.path.isdir(kwargs["target"])
-                else kwargs["target"]
-            ),
-            color_mode="grayscale",
-            target_size=IMG_SIZE[::-1],
-        )
-        # Replace "1.JPG" with your image of choice
-        # Normalize pixel values
-        img_array = np.expand_dims(image.img_to_array(img), axis=0) / 255.0
-        # Make predictions using the model
-        predictions = model.predict(img_array)
+    # print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
+    # for _img_path in os.listdir(
+    #     kwargs["target"]
+    #     if os.path.isdir(kwargs["target"])
+    #     else kwargs["target"].split(",")
+    # ):
+    # Load and preprocess the image
 
-        # Assuming predictions are [class_prob]
-        # Adjust this threshold as needed
-        if predictions[0] > kwargs["threshold"]:
-            # Visualization with matplotlib assuming predictions are above threshold
-            plt.imshow(img)
-            plt.title("Detected Object")
-            plt.show()
+    for valid_img_path in valid_img_path[:5]:
+        if "0" in valid_img_path:
+            print("There is no part in this image.")
         else:
-            print("No object detected.")
+            print("There is a part in this image")
+        img_predict(
+            image.load_img(
+                valid_img_path, color_mode="grayscale", target_size=IMG_SIZE[::-1]
+            ),
+            model,
+        )
+
+
+def img_predict(_image: Image, model: Sequential, threshold: float = 0.5) -> None:
+    """predicts an image according to the model
+
+    args:
+        - image (Image) pointer to
+        - model (Sequential) pointer to
+        - threshold (float) prediciton treshold
+    """
+
+    # Replace "1.JPG" with your image of choice
+    # Normalize pixel values
+    img_array = np.expand_dims(image.img_to_array(_image), axis=0) / 255.0
+    # Make predictions using the model
+    predictions = model.predict(img_array)
+
+    # Assuming predictions are [class_prob]
+    # Adjust this threshold as needed
+    if predictions[0] > threshold:
+        # Visualization with matplotlib assuming predictions are above threshold
+        plt.imshow(_image)
+        plt.title("Detected Object")
+        plt.show()
+    else:
+        print("No object detected.")
 
 
 if __name__ == "__main__":
@@ -224,8 +245,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--parts-zip",
         default="photos.zip",
-        required=False,
         help="path to no images with parts zip",
+    )
+    parser.add_argument(
+        "--basepath",
+        "-b",
+        default="",
+        help="basepath of path, default /tmp",
     )
     parser.add_argument(
         "--threshold",
@@ -234,6 +260,11 @@ if __name__ == "__main__":
         required=False,
         help="treshold detection",
     )
-    parser.add_argument("--target", "-t", default=None, help="target image(s)")
+    # parser.add_argument(
+    #     "--target",
+    #     "-t",
+    #     default=None,
+    #     help="target image(s), can be folder or csv of files",
+    # )
 
     main(**parser.parse_args().__dict__)
