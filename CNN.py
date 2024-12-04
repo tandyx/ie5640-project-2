@@ -1,13 +1,15 @@
-"""code from professor"""
+"""CNN.py"""
 
-import os
-import tempfile
 import argparse
+import os
+import pathlib
+import shutil
+import tempfile
+import time
+from zipfile import ZipFile
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-# from tensorflow import keras
 from keras import layers
 from keras.api import Sequential
 from keras.api.callbacks import EarlyStopping
@@ -15,18 +17,43 @@ from keras.api.preprocessing import image
 from PIL import Image
 from sklearn.model_selection import train_test_split
 
-import shared
-
-# Load and preprocess images (assuming 'images' is a list of image paths)
-# PATH = "/Users/FULL_PATH_GOES_HERE/CNN/"  # Windows: r'C:\Users\...'
 IMG_SIZE = (640, 480)  # width by height
+
+PathLike = str | os.PathLike | pathlib.Path
+PathLikeOpt = PathLike | None
+
+
+def unzip(zippath: PathLike, pathto: PathLikeOpt = None, flatten: bool = False) -> str:
+    """unzips a file and returns the path to the file
+
+    args:
+        - zippath (PathLike): path to target archive
+        - pathto (Pathlike | None): inferred as the zip name strip the ext into /tmp
+        - flatten (bool): ignores structure\n
+    returns:
+        - path to unzipped file as str
+    """
+    pathto = pathto or os.path.join(
+        tempfile.gettempdir(), pathlib.Path(zippath).name.split(".")[0]
+    )
+    with ZipFile(zippath) as zipf:
+        if not flatten:
+            zipf.extractall(pathto)
+            return pathto
+        for mem in zipf.namelist():
+            if not (fname := os.path.basename(mem)):
+                continue
+            with zipf.open(mem) as src, open(os.path.join(pathto, fname), "wb") as trgt:
+                shutil.copyfileobj(src, trgt)
+            # copy file (taken from zipfile's extract)
+    return pathto
 
 
 def load_images(
-    basepath: os.PathLike,
+    basepath: PathLike,
     ispart: bool,
     img_size: tuple[int, int] = IMG_SIZE,
-    zippath: os.PathLike = None,
+    zippath: PathLikeOpt = None,
 ) -> list[np.ndarray]:
     """manipulates images and grayscales them or something like that
 
@@ -44,20 +71,19 @@ def load_images(
     ):
         os.makedirs(image_dir)
         if zippath:
-            shared.unzip(zippath, image_dir, True)
-    image_files = [
+            unzip(zippath, image_dir, flatten=True)
+    imgfs = [
         os.path.join(image_dir, file)
         for file in os.listdir(image_dir)
         if file.endswith(("jpg", "jpeg", "JPG"))
     ]
-    grayscale_images = [np.array(Image.open(imgp).convert("L")) for imgp in image_files]
-    output_path = os.path.join(basepath, f"grayscale_images_{label}")
-    if not os.path.exists(output_path):
+    if not os.path.exists(
+        output_path := os.path.join(basepath, f"grayscale_images_{label}")
+    ):
         os.makedirs(output_path)
-    for idx, img_array in enumerate(grayscale_images):
-        # Save grayscale image as JPG (or desired format)rs(image_dir)
+    for i, img_array in enumerate(np.array(Image.open(p).convert("L")) for p in imgfs):
         Image.fromarray(img_array.astype("uint8"), "L").save(
-            os.path.join(output_path, f"image_{idx}.jpg")
+            os.path.join(output_path, f"image_{i}.jpg")
         )
     return [
         np.array(Image.open(os.path.join(output_path, fname)).resize(img_size))
@@ -66,7 +92,7 @@ def load_images(
 
 
 def save_images_from_array(
-    images_array: list[np.ndarray], labels: list[int], output_folder: os.PathLike
+    images_array: list[np.ndarray], labels: list[int], output_folder: PathLike
 ) -> list[str]:
     """
     Extra work to reconstruct images if needed.
@@ -76,54 +102,46 @@ def save_images_from_array(
     args:
         - images_arrary (list[np.ndarray])
         - labels (list[int])
-        - output_folder (os.Pathlike) \n
+        - output_folder (Pathlike) \n
     returns:
         - list of paths
     """
     paths: list[str] = []
     for idx, img_array in enumerate(images_array):
-        # Assuming the image_array contains the pixel values for the image
-        # Create PIL image from array
         img = Image.fromarray(img_array.astype("uint8"))
-        # img = img.resize((original_width, original_height))
-        # label =   # Get label for the image
-        if not os.path.exists(
-            label_dir := os.path.join(output_folder, str(labels[idx]))
-        ):
-            os.makedirs(label_dir)
-        img.save(_path := os.path.join(label_dir, f"image_{idx}.jpg"))  # Save the image
+        if not os.path.exists(ldir := os.path.join(output_folder, str(labels[idx]))):
+            os.makedirs(ldir)
+        img.save(_path := os.path.join(ldir, f"image_{idx}.jpg"))  # Save the image
         paths.append(_path)
     return paths
 
 
-def main(**kwargs):
+def main(**kwargs) -> None:
+    """main function for file"""
 
-    if not os.path.exists(
-        basepath := kwargs["basepath"] or os.path.join(tempfile.gettempdir(), "CNN")
-    ):
-        os.mkdir(basepath)
+    if not os.path.exists(kwargs["basepath"]):
+        os.mkdir(kwargs["basepath"])
     # Load images and labels for each class
-    product_images = load_images(basepath, True, zippath=kwargs["parts_zip"])
-    no_product_images = load_images(basepath, False, zippath=kwargs["no_parts_zip"])
-
+    part_imgs = load_images(kwargs["basepath"], True, zippath=kwargs["parts_zip"])
+    nopart_imgs = load_images(kwargs["basepath"], False, zippath=kwargs["no_parts_zip"])
     # Combine the two sets of images and labels
-    all_images = product_images + no_product_images
-    all_labels = [1] * len(product_images) + [0] * len(no_product_images)
+    all_images = part_imgs + nopart_imgs
+    all_labels = [1] * len(part_imgs) + [0] * len(nopart_imgs)
 
     # Split the dataset into training and testing sets
     x_train, x_valid, y_train, y_valid = [
         np.array(_s)
         for _s in train_test_split(
-            all_images, all_labels, test_size=0.4, random_state=1
+            all_images, all_labels, test_size=0.4, random_state=kwargs["random_state"]
         )
     ]
     # Save training images
     save_images_from_array(
-        x_train, y_train, os.path.join(basepath, "train_output_folder")
+        x_train, y_train, os.path.join(kwargs["basepath"], "train_output_folder")
     )
     # Save validation images
-    valid_img_path = save_images_from_array(
-        x_valid, y_valid, os.path.join(basepath, "valid_output_folder")
+    _img_paths = save_images_from_array(
+        x_valid, y_valid, os.path.join(kwargs["basepath"], "valid_output_folder")
     )
 
     # *****************************
@@ -133,22 +151,19 @@ def main(**kwargs):
 
     model = Sequential(
         [
-            layers.Input(
-                shape=(*IMG_SIZE[::-1], 1)
-            ),  # Update the input shape to reflect grayscale images
-            layers.Conv2D(
-                32, (3, 3), activation="relu"
-            ),  # This is a convolutional layer with 32 filters/kernels of size
+            # Update the input shape to reflect grayscale images
+            layers.Input(shape=(*IMG_SIZE[::-1], 1)),
+            # This is a convolutional layer with 32 filters/kernels of size
+            layers.Conv2D(32, (3, 3), activation="relu"),
             # 3x3. It uses ReLU (Rectified Linear Unit) activation function, which introduces non-linearity into the network.
             layers.MaxPooling2D((2, 2)),
             # Reduces the spatial dimensions (width and height) of the previous layer's output by taking the maximum value in a 2x2 grid
             layers.Conv2D(64, (3, 3), activation="relu"),
             layers.MaxPooling2D((2, 2)),
-            layers.Flatten(),
             # Flattens the 2D output from the previous layer into a 1D array, preparing it to connect to a fully connected layer
-            layers.Dense(
-                128, activation="relu"
-            ),  # A dense (fully connected) layer with 128 neurons and ReLU activation
+            layers.Flatten(),
+            # A dense (fully connected) layer with 128 neurons and ReLU activation
+            layers.Dense(128, activation="relu"),
             layers.Dense(1, activation="sigmoid"),
         ]
     )
@@ -172,11 +187,12 @@ def main(**kwargs):
     model.fit(
         x_train,
         y_train,
-        epochs=10,
-        batch_size=6,
+        epochs=kwargs["epochs"],
+        batch_size=kwargs["batch_size"],
         validation_data=(x_valid[:5], y_valid[:5]),
         callbacks=[early_stopping],
     )
+
     # epochs: Indicates how many times the entire dataset is passed forward and backward through the neural network.
     # Each epoch includes processing all the batches within the dataset.
     # The number of epochs affects how many times the model is exposed to the entire dataset
@@ -185,30 +201,28 @@ def main(**kwargs):
     # might converge faster but could lead to noisier gradients, while larger batch sizes might provide a smoother
     # gradient but can be computationally expensive.
 
-    # val_loss, val_accuracy = model.evaluate(x_valid, y_valid)
+    val_loss, val_accuracy = model.evaluate(x_valid, y_valid)
+    print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
 
-    # print(f"Validation Accuracy: {val_accuracy * 100:.2f}%")
-    # for _img_path in os.listdir(
-    #     kwargs["target"]
-    #     if os.path.isdir(kwargs["target"])
-    #     else kwargs["target"].split(",")
-    # ):
     # Load and preprocess the image
 
-    for valid_img_path in valid_img_path[:5]:
-        if "0" in valid_img_path:
-            print("There is no part in this image.")
+    for _imgpth in _img_paths[:5]:
+        print("##################################################")
+        if "0" in _imgpth:
+            print("Actual: There is **no** part in this image.")
         else:
-            print("There is a part in this image")
+            print("Actual: There is a part in this image")
         img_predict(
-            image.load_img(
-                valid_img_path, color_mode="grayscale", target_size=IMG_SIZE[::-1]
-            ),
+            image.load_img(_imgpth, color_mode="grayscale", target_size=IMG_SIZE[::-1]),
             model,
+            threshold=kwargs["threshold"],
+            show_img=kwargs["show_img"],
         )
 
 
-def img_predict(_image: Image, model: Sequential, threshold: float = 0.5) -> None:
+def img_predict(
+    _image: Image, model: Sequential, threshold: float = 0.5, show_img: bool = False
+) -> None:
     """predicts an image according to the model
 
     args:
@@ -222,49 +236,73 @@ def img_predict(_image: Image, model: Sequential, threshold: float = 0.5) -> Non
     img_array = np.expand_dims(image.img_to_array(_image), axis=0) / 255.0
     # Make predictions using the model
     predictions = model.predict(img_array)
-
-    # Assuming predictions are [class_prob]
-    # Adjust this threshold as needed
-    if predictions[0] > threshold:
-        # Visualization with matplotlib assuming predictions are above threshold
+    if show_img:
         plt.imshow(_image)
         plt.title("Detected Object")
         plt.show()
-    else:
-        print("No object detected.")
+    if predictions[0] > threshold:
+        print("Predction: Object detected.")
+        return
+    print("Predction: No object detected.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--no-parts-zip",
+        "-npz",
         default="photos_no_part.zip",
         required=False,
         help="path to no parts zip file -- zip containing images without any parts",
     )
     parser.add_argument(
         "--parts-zip",
+        "-pz",
         default="photos.zip",
         help="path to no images with parts zip",
     )
     parser.add_argument(
         "--basepath",
         "-b",
-        default="",
+        "-o",
+        default=os.path.join(tempfile.gettempdir(), "CNN"),
         help="basepath of path, default /tmp",
     )
     parser.add_argument(
         "--threshold",
+        "-t",
         type=float,
         default=0.5,
-        required=False,
         help="treshold detection",
     )
-    # parser.add_argument(
-    #     "--target",
-    #     "-t",
-    #     default=None,
-    #     help="target image(s), can be folder or csv of files",
-    # )
-
+    parser.add_argument(
+        "--random-state",
+        "--seed",
+        "-s",
+        type=int,
+        default=int(time.time()),
+        help="random seed for train/test split",
+    )
+    parser.add_argument(
+        "--epochs",
+        "-e",
+        type=int,
+        default=10,
+        help="training epocs",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=6,
+        help="training batches",
+    )
+    parser.add_argument(
+        "--show-img",
+        "--show-imgage",
+        "--show-imgages",
+        "-si",
+        default=False,
+        action="store_true",
+        help="show images? interupts script",
+    )
     main(**parser.parse_args().__dict__)
