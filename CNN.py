@@ -119,9 +119,9 @@ def save_images_from_array(
 def main(**kwargs) -> None:
     """main function for file"""
 
-    if not os.path.exists(kwargs["basepath"]):
-        os.mkdir(kwargs["basepath"])
-    # Load images and labels for each class
+    if os.path.exists(kwargs["basepath"]):
+        shutil.rmtree(kwargs["basepath"])
+    os.mkdir(kwargs["basepath"])
     part_imgs = load_images(kwargs["basepath"], True, zippath=kwargs["parts_zip"])
     nopart_imgs = load_images(kwargs["basepath"], False, zippath=kwargs["no_parts_zip"])
     # Combine the two sets of images and labels
@@ -208,10 +208,7 @@ def main(**kwargs) -> None:
 
     for _imgpth in _img_paths[:5]:
         print("##################################################")
-        if "0" in _imgpth:
-            print("Actual: There is **no** part in this image.")
-        else:
-            print("Actual: There is a part in this image")
+        print(f"Actual:{" " if "0" not in _imgpth else " Doesn't "}Exists")
         img_predict(
             image.load_img(_imgpth, color_mode="grayscale", target_size=IMG_SIZE[::-1]),
             model,
@@ -235,15 +232,13 @@ def img_predict(
     # Normalize pixel values
     img_array = np.expand_dims(image.img_to_array(_image), axis=0) / 255.0
     # Make predictions using the model
-    predictions = model.predict(img_array)
-    if show_img:
-        plt.imshow(_image)
-        plt.title("Detected Object")
-        plt.show()
-    if predictions[0] > threshold:
-        print("Predction: Object detected.")
+    preds = model.predict(img_array)
+    print(msg := f"Predction: Part{" " if preds[0] > threshold else " Doesn't "}Exists")
+    if not show_img:
         return
-    print("Predction: No object detected.")
+    plt.imshow(_image)
+    plt.title(msg)
+    plt.show()
 
 
 if __name__ == "__main__":
