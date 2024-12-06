@@ -41,7 +41,7 @@ def unzip(zippath: PathLike, pathto: PathLikeOpt = None, flatten: bool = False) 
             zipf.extractall(pathto)
             return pathto
         for mem in zipf.namelist():
-            if not (fname := os.path.basename(mem)):
+            if not (fname := os.path.basename(mem)) or "__MACOSX" in mem:
                 continue
             with zipf.open(mem) as src, open(os.path.join(pathto, fname), "wb") as trgt:
                 shutil.copyfileobj(src, trgt)
@@ -118,7 +118,8 @@ def save_images_from_array(
 
 def main(**kwargs) -> None:
     """main function for file"""
-
+    if os.path.abspath(os.curdir) == os.path.abspath(kwargs["basepath"]):
+        kwargs["basepath"] = ".images"
     if os.path.exists(kwargs["basepath"]):
         shutil.rmtree(kwargs["basepath"])
     os.mkdir(kwargs["basepath"])
@@ -208,7 +209,7 @@ def main(**kwargs) -> None:
 
     for _imgpth in _img_paths[:5]:
         print("##################################################")
-        print(f"Actual:{" " if "0" not in _imgpth else " Doesn't "}Exists")
+        print(f"Actual: Part{" " if "0" not in _imgpth else " Doesn't "}Exists")
         img_predict(
             image.load_img(_imgpth, color_mode="grayscale", target_size=IMG_SIZE[::-1]),
             model,

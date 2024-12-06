@@ -75,6 +75,7 @@ venv/
 /runs
 */*.zip
 *.zip
-.images
+.images/
 *.keras
 runs/
+images/
