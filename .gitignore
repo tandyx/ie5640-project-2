@@ -79,3 +79,4 @@ venv/
 *.keras
 runs/
 images/
+cnn_identified_figs/
