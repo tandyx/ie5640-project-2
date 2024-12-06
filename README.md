@@ -1,5 +1,18 @@
 # ie5640 group project 2
 
+## cnn
+
+this is the cnn portion of this project.
+
+```sh
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip3 install -r requirements.txt
+python3 CNN.py --batch-size 12 -b . -s 8 -e 15
+
+```
+
 ## product detection in the cyber physical lab
 
 ### NOTES

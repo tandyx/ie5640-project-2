@@ -118,8 +118,10 @@ def save_images_from_array(
 
 def main(**kwargs) -> None:
     """main function for file"""
-    if os.path.abspath(os.curdir) == os.path.abspath(kwargs["basepath"]):
-        kwargs["basepath"] = ".images"
+    if os.path.dirname(os.path.abspath(__file__)) == os.path.abspath(
+        kwargs["basepath"]
+    ):
+        kwargs["basepath"] = "images"
     if os.path.exists(kwargs["basepath"]):
         shutil.rmtree(kwargs["basepath"])
     os.mkdir(kwargs["basepath"])
