@@ -4,6 +4,8 @@
 
 this is the cnn portion of this project.
 
+you need two have two separate `.zip` archives of photos (`photos.zip`) with the case and photos without the case (`photos_no_part.zip`) in the working directory, but you could specify this with cli arguments if needed
+
 ```sh
 
 python3 -m venv .venv
